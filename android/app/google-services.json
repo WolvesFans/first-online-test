@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "138519468481",
+    "project_id": "ztestonline",
+    "storage_bucket": "ztestonline.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:138519468481:android:d4a4850a806b73a172b740",
+        "android_client_info": {
+          "package_name": "com.example.test_online"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwY0IqPR-ZeSFotb69_gHQ2G9CIXMBsrI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
