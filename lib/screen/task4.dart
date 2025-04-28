@@ -100,19 +100,7 @@ class _Task4State extends State<Task4> {
   //build full path
   Future<String> buildFullPath(String? parent, String child) async {
     if (parent == null) return child;
-    List<String> pathSegments = [child];
-    String? currentParent = parent;
-    while (currentParent != null) {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('Path Test 3-4').where('Child', isEqualTo: currentParent.split('/').last).get();
-      if (snapshot.docs.isNotEmpty) {
-        var doc = snapshot.docs.first;
-        pathSegments.insert(0, doc['Child']);
-        currentParent = doc['Parent'];
-      } else {
-        break;
-      }
-    }
-    return pathSegments.join('/');
+    return '$parent/$child';
   }
 
   //add child
@@ -127,9 +115,32 @@ class _Task4State extends State<Task4> {
       );
       return;
     }
+
+    //find full path parent
+    String? parentFullPath = parent;
+    if (parent != null) {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('Path Test 3-4').where('Lower Child', isEqualTo: parent.split('/').last.toLowerCase()).get();
+      if (snapshot.docs.isNotEmpty) {
+        QueryDocumentSnapshot? matchingDoc;
+        try {
+          matchingDoc = snapshot.docs.firstWhere((doc) {
+            String docFullPath = doc['Parent'] != null ? '${doc['Parent']}/${doc['Child']}' : doc['Child'];
+            return docFullPath == parent;
+          });
+        } catch (e) {}
+        if (matchingDoc != null) {
+          parentFullPath = matchingDoc['Parent'] != null ? '${matchingDoc['Parent']}/${matchingDoc['Child']}' : matchingDoc['Child'];
+        } else {
+          parentFullPath = parent;
+        }
+      }
+    }
+
+    //add data to firebase
     await FirebaseFirestore.instance.collection('Path Test 3-4').add({
-      'Parent': parent,
-      'Child': childName.toLowerCase(),
+      'Parent': parentFullPath,
+      'Child': childName,
+      'Lower Child': childName.toLowerCase(),
       'Created At': FieldValue.serverTimestamp(),
     });
     childController.clear();
