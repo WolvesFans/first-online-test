@@ -17,11 +17,54 @@ class _Task3State extends State<Task3> {
   final TextEditingController childController = TextEditingController();
   final TextEditingController parentController = TextEditingController();
   String? selectedParent;
+  Map<String, dynamic> treePaths = {};
 
   @override
   void initState() {
     super.initState();
     fetchPaths();
+  }
+
+  //build tree structure
+  Map<String, dynamic> buildTreeStructure(List<Map<String, dynamic>> paths) {
+    Map<String, dynamic> tree = {};
+    Map<String, Map<String, dynamic>> nodeMap = {};
+    for (var path in paths) {
+      String fullPath = path['Full Path'];
+      nodeMap[fullPath] = {
+        'Id': path['Id'],
+        'Full Path': fullPath,
+        'Child': path['Child'],
+        'Children': <String, dynamic>{},
+      };
+    }
+    for (var path in paths) {
+      String fullPath = path['Full Path'];
+      String? parent = path['Parent'];
+      if (parent == null) {
+        tree[fullPath] = nodeMap[fullPath];
+      } else {
+        if (nodeMap.containsKey(parent)) {
+          nodeMap[parent]!['Children'][path['Child']] = nodeMap[fullPath];
+        }
+      }
+    }
+    return tree;
+  }
+
+  //build tree
+  Widget buildTree(Map<String, dynamic> tree) {
+    return Column(
+      children: tree.entries.map((entry) {
+        String key = entry.key;
+        Map<String, dynamic> node = entry.value;
+        Map<String, dynamic> children = node['Children'];
+        return ExpansionTile(
+          title: Text(node['Child']),
+          children: children.isNotEmpty ? [buildTree(children)] : [],
+        );
+      }).toList(),
+    );
   }
 
   //fetching paths
@@ -49,6 +92,7 @@ class _Task3State extends State<Task3> {
     setState(() {
       paths = fullPaths;
       filteredPaths = paths;
+      treePaths = buildTreeStructure(fullPaths);
       currentPage = 1;
     });
   }
@@ -56,22 +100,7 @@ class _Task3State extends State<Task3> {
   //build full path
   Future<String> buildFullPath(String? parent, String child) async {
     if (parent == null) return child;
-    List<String> pathSegments = [child];
-    String? currentParent = parent;
-    while (currentParent != null) {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance
-          .collection('Path Test 3-4')
-          .where('Child', isEqualTo: currentParent.split('/').last)
-          .get();
-      if (snapshot.docs.isNotEmpty) {
-        var doc = snapshot.docs.first;
-        pathSegments.insert(0, doc['Child']);
-        currentParent = doc['Parent'];
-      } else {
-        break;
-      }
-    }
-    return pathSegments.join('/');
+    return '$parent/$child';
   }
 
   //add child
@@ -86,9 +115,32 @@ class _Task3State extends State<Task3> {
       );
       return;
     }
+
+    //find full path parent
+    String? parentFullPath = parent;
+    if (parent != null) {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('Path Test 3-4').where('Lower Child', isEqualTo: parent.split('/').last.toLowerCase()).get();
+      if (snapshot.docs.isNotEmpty) {
+        QueryDocumentSnapshot? matchingDoc;
+        try {
+          matchingDoc = snapshot.docs.firstWhere((doc) {
+            String docFullPath = doc['Parent'] != null ? '${doc['Parent']}/${doc['Child']}' : doc['Child'];
+            return docFullPath == parent;
+          });
+        } catch (e) {}
+        if (matchingDoc != null) {
+          parentFullPath = matchingDoc['Parent'] != null ? '${matchingDoc['Parent']}/${matchingDoc['Child']}' : matchingDoc['Child'];
+        } else {
+          parentFullPath = parent;
+        }
+      }
+    }
+
+    //add data to firebase
     await FirebaseFirestore.instance.collection('Path Test 3-4').add({
-      'Parent': parent,
-      'Child': childName.toLowerCase(),
+      'Parent': parentFullPath,
+      'Child': childName,
+      'Lower Child': childName.toLowerCase(),
       'Created At': FieldValue.serverTimestamp(),
     });
     childController.clear();
@@ -108,6 +160,7 @@ class _Task3State extends State<Task3> {
           return path['Full Path'].toLowerCase().contains(searchQuery.toLowerCase());
         }).toList();
       }
+      treePaths = buildTreeStructure(filteredPaths);
       currentPage = 1;
     });
   }
@@ -288,6 +341,7 @@ class _Task3State extends State<Task3> {
                 },
                 child: const Text('Simpan'),
               ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
